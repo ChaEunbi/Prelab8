@@ -6,6 +6,7 @@
 void eval(char *cmdline);
 int parseline(char *buf, char **argv);
 int builtin_command(char **argv); 
+int argc;
 
 int main() 
 {
@@ -35,16 +36,18 @@ void eval(char *cmdline)
     
     strcpy(buf, cmdline);
     bg = parseline(buf, argv); 
-    if (argv[0] == NULL)  
-	return;   /* Ignore empty lines */
-
-    if (!builtin_command(argv)) { 
-        if ((pid = Fork()) == 0) {   /* Child runs user job */
-            if (execve(argv[0], argv, environ) < 0) {
-                printf("%s: Command not found.\n", argv[0]);
-                exit(0);
-            }
-        }
+	if (argv[0] == NULL)  
+		return;   /* Ignore empty lines */
+    int i; 
+	if (!builtin_command(argv)) { 
+        for(i=0;i<argc;i+=2){
+			if ((pid = Fork()) == 0) {   /* Child runs user job */
+				if (execve(argv[i], argv, environ) < 0) {
+               		printf("%s: Command not found.\n", argv[0]);
+               		exit(0);
+            	}
+        	}
+		}
 
 	/* Parent waits for foreground job to terminate */
 	if (!bg) {
@@ -62,6 +65,7 @@ void eval(char *cmdline)
 int builtin_command(char **argv) 
 {
     if (!strcmp(argv[0], "quit")){ /* quit command */
+		kill(0, SIGKILL);
 		exit(0);  
 	}
     if (!strcmp(argv[0], "&"))    /* Ignore singleton & */
@@ -74,10 +78,9 @@ int builtin_command(char **argv)
 /* parseline - Parse the command line and build the argv array */
 int parseline(char *buf, char **argv) 
 {
-    char *delim;         /* Points to first space delimiter */
-    int argc;            /* Number of args */
+    //int argc;            /* Number of args */
     int bg;              /* Background job? */
-
+	
 	buf[strlen(buf)-1] = ' ';
     /* Build the argv list */
     argc = 0;
@@ -86,15 +89,14 @@ int parseline(char *buf, char **argv)
 		argv[argc++] = strtok(NULL, " ");
 	argc--;
     
-    //if (argc == 0)  /* Ignore blank line */
-	//	return 1;
-
+    if (argc == 0)  /* Ignore blank line */
+		return 1;
     /* Should the job run in the background? */
-    if ((bg = (*argv[argc-1] == '&')) != 0)
+    if ((bg = (*argv[argc-1] == '&')) != 0){
 		argv[--argc] = NULL;
-
+	}
+		
     return bg;
 }
 /* $end parseline */
-
 
