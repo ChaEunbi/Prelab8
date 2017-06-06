@@ -32,7 +32,7 @@ void eval(char *cmdline)
     char *argv[MAXARGS]; /* Argument list execve() */
     char buf[MAXLINE];   /* Holds modified command line */
     int bg;              /* Should the job run in bg or fg? */
-    pid_t pid;           /* Process id */
+    pid_t pid[64];           /* Process id */
     
     strcpy(buf, cmdline);
     bg = parseline(buf, argv); 
@@ -40,8 +40,8 @@ void eval(char *cmdline)
 		return;   /* Ignore empty lines */
     int i; 
 	if (!builtin_command(argv)) { 
-        for(i=0;i<argc;i+=2){
-			if ((pid = Fork()) == 0) {   /* Child runs user job */
+        for(i=0;i<argc;i++){
+			if ((pid[i] = Fork()) == 0) {   /* Child runs user job */
 				if (execve(argv[i], argv, environ) < 0) {
                		printf("%s: Command not found.\n", argv[0]);
                		exit(0);
@@ -52,11 +52,13 @@ void eval(char *cmdline)
 	/* Parent waits for foreground job to terminate */
 	if (!bg) {
 	    int status;
-	    if (waitpid(pid, &status, 0) < 0)
+	    if (waitpid(pid[i], &status, 0) < 0)
 		unix_error("waitfg: waitpid error");
 	}
-	else
-	    printf("%d %s", pid, cmdline);
+	else{
+		for(i=0;i<argc;i++)
+	    printf("%d %s\n", pid[i], argv[i]);
+		}
     }
     return;
 }
@@ -82,19 +84,20 @@ int parseline(char *buf, char **argv)
     int bg;              /* Background job? */
 	
 	buf[strlen(buf)-1] = ' ';
+	bg = buf[strlen(buf)-2] == '&';
     /* Build the argv list */
     argc = 0;
- 	argv[argc++] = strtok(buf, " ");
+ 	argv[argc++] = strtok(buf, " &");
 	while(argv[argc-1] != NULL)
-		argv[argc++] = strtok(NULL, " ");
+		argv[argc++] = strtok(NULL, " &");
 	argc--;
     
     if (argc == 0)  /* Ignore blank line */
 		return 1;
     /* Should the job run in the background? */
-    if ((bg = (*argv[argc-1] == '&')) != 0){
-		argv[--argc] = NULL;
-	}
+    //if ((bg = (*argv[argc-1] == '&')) != 0){
+	//	argv[--argc] = NULL;
+	//}
 		
     return bg;
 }
